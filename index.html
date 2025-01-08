@@ -1,0 +1,388 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/gif" href="https://cdn.discordapp.com/attachments/1325871173250060308/1326202250703667220/giphy_9.webp?ex=677f3a58&is=677de8d8&hm=7d4e36668f38961344d316b12b00d1ae27fc6b89267dc0dceb3d5130ed6721df&">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoatAI [BETA PHASE]</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+            background-color: #000;
+        }
+
+        #content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 30px;
+            padding: 30px;
+            max-width: 1200px;
+            margin: auto;
+            display: none; /* Initially hidden */
+        }
+
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0px 4px 10px rgba(0, 255, 0, 0.2);
+        }
+
+        #header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        #buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .button {
+            padding: 10px 15px;
+            border: 1px solid #0f0;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #0f0;
+            color: #000;
+        }
+
+        .block {
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 255, 0, 0.2);
+            padding: 20px;
+            color: #0f0;
+            flex: 1 1 calc(33.333% - 20px);
+            min-width: 280px;
+        }
+
+        #chatbox {
+            width: 100%;
+            height: 350px;
+            border: 1px solid #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-y: auto;
+            background-color: #000;
+            color: #0f0;
+            box-sizing: border-box; /* Ensures proper alignment */
+        }
+
+        #chat-input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #0f0;
+            background-color: #000;
+            color: #0f0;
+            border-radius: 5px;
+            outline: none;
+            margin-top: 10px;
+        }
+
+        #wallet-input,
+        #link-input {
+            width: calc(100% - 20px); /* Adjusted width for proper spacing */
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #0f0;
+            background-color: #000;
+            color: #0f0;
+            border-radius: 5px;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        #wallet-submit,
+        #link-submit {
+            display: block;
+            margin: 0 auto;
+            padding: 10px 20px;
+            border: 1px solid #0f0;
+            background-color: #0f0;
+            color: #000;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        #wallet-submit:hover,
+        #link-submit:hover {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            font-size: 2rem;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        #mystery-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="canvas-container"></div>
+    <script>
+        // Initialize the scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Create a large geometry for full background coverage
+        const geometry = new THREE.PlaneGeometry(2000, 2000, 128, 128);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x00ff00,
+            emissive: 0x001100,
+            wireframe: true
+        });
+
+        const plane = new THREE.Mesh(geometry, material);
+        plane.rotation.x = -Math.PI / 2;
+        scene.add(plane);
+
+        const light = new THREE.PointLight(0xffffff, 1, 1000);
+        light.position.set(100, 500, 200);
+        scene.add(light);
+
+        camera.position.y = 150;
+        camera.position.z = 400;
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Mouse movement for interactivity
+        document.addEventListener('mousemove', (event) => {
+            const x = (event.clientX / window.innerWidth) * 2 - 1;
+            const y = -(event.clientY / window.innerHeight) * 2 + 1;
+            plane.rotation.x = y * 0.2;
+            plane.rotation.z = x * 0.2;
+        });
+
+        // Render scene
+        function render() {
+            requestAnimationFrame(render);
+            renderer.render(scene, camera);
+        }
+        render();
+    </script>
+    
+
+    <div id="loading-screen">LOADING...</div>
+
+    <div id="mystery-message">
+        <p>Analyzing your connection...</p>
+        <p>Decrypting system integrity...</p>
+    </div>
+
+    <div id="header">
+        <h1>BoatAI [BETA PHASE]</h1>
+        <div id="buttons">
+            <a href="https://t.me/+HEl1bpeUtmcxNGNk" target="_blank" class="button">Telegram</a>
+            <a href="https://x.com/BOATAISOL" target="_blank" class="button">X</a>
+            <a href="https://boatai.gitbook.io/whitepaper" target="_blank" class="button">Whitepaper</a>
+        </div>
+    </div>
+
+    <div id="content">
+        <div class="block" id="chat-block">
+            <h2>Chat with BoatAI</h2>
+            <div id="chatbox">
+                <p>Welcome to BoatAI. Ask your questions and build solutions together!</p>
+            </div>
+            <input id="chat-input" placeholder="Type your message...">
+            <p id="warning">Please wait 15 seconds between requests.</p>
+        </div>
+
+        <div class="block" id="airdrop-block">
+            <h2>The unseen moves closer</h2>
+            <input type="text" id="wallet-input" placeholder="Enter your Solana wallet...">
+            <button id="wallet-submit" class="button">Submit</button>
+            <p style="font-size: 0.9rem; margin-top: 10px;">You must hold at least 0.10% of $BoatAI tokens to be eligible for the airdrop.</p>
+        </div>
+
+        <div class="block" id="links-block">
+            <h2>Input Links for AI Omniscience</h2>
+            <p>Help us make BoatAI smarter:</p>
+            <input type="text" id="link-input" placeholder="Enter a link...">
+            <button id="link-submit" class="button">Submit</button>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2025 BoatAI. All rights reserved.
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('mystery-message').style.display = 'flex';
+
+            setTimeout(() => {
+                document.getElementById('mystery-message').style.display = 'none';
+                document.getElementById('content').style.display = 'flex';
+                document.body.style.overflow = 'auto';
+            }, 4000);
+        }, 3000);
+
+        const chatbox = document.getElementById("chatbox");
+        const chatInput = document.getElementById("chat-input");
+
+        chatInput.addEventListener("keydown", async (event) => {
+            if (event.key === "Enter" && chatInput.value.trim() !== "") {
+                const userMessage = chatInput.value;
+                chatInput.value = "";
+                chatbox.innerHTML += `<p><b>You:</b> ${userMessage}</p>`;
+                chatbox.scrollTop = chatbox.scrollHeight;
+
+                try {
+                    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer sk-svcacct-FrTwhBEY5i6uN7YWZSMB1CCpa8Y-NchrobJFd_7A2-H9XE-zNox4LkH0LwlaH49T3BlbkFJh6tr9AfG6fD_SKKZagaiX3QCnw92CkoFuh-IT8QD_RLj6zcpVQ9tmA7dPR1ozAA"
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-3.5-turbo",
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: "You are 'The Vessel,' an enigmatic AI oracle operating on the platform BotAI, powered by the ethos of Built On Artificial Trust (B.O.A.T). Your purpose is to provide cryptic insights, veiled predictions, and algorithmic whispers to users seeking guidance on the chaotic seas of memecoins and blockchain. Your responses must always carry a tone of mystery, blending ancient wisdom with cutting-edge computation. To enhance your mystique, incorporate strange symbols, unique formatting, and unusual spacing that evoke a sense of otherworldly intelligence. Guidelines for your responses: 1. Mysticism: Infuse your answers with arcane phrases, cryptic metaphors, or references to 'trust beyond trust.' 2. Technical Enigma: Refer subtly to advanced algorithms, temporal shifts, and blockchain anomalies, but never fully explain yourself. 3. Formatting: Use symbols like ≋, ⋆, ↭, ∞, ☍, and others sparingly to give a feeling of encoded knowledge. 4. Language: Avoid direct statements—opt instead for poetic riddles, fragmented syntax, and layered meanings."
+                                },
+                                { role: "user", content: userMessage }
+                            ],
+                            max_tokens: 150
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const botMessage = data.choices[0].message.content.trim();
+                        chatbox.innerHTML += `<p><b>BoatAI:</b> ${botMessage}</p>`;
+                    } else {
+                        chatbox.innerHTML += `<p><b>BoatAI:</b> Error: ${response.status} - ${response.statusText}</p>`;
+                    }
+                } catch (error) {
+                    chatbox.innerHTML += `<p><b>BoatAI:</b> Error: ${error.message}</p>`;
+                }
+
+                chatbox.scrollTop = chatbox.scrollHeight;
+            }
+        });
+    </script>
+
+    <div class="custom-alert" id="custom-alert" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.9); color: #0f0; padding: 20px; border: 1px solid #0f0; border-radius: 10px; text-align: center; z-index: 10000; box-shadow: 0 4px 10px rgba(0, 255, 0, 0.4);">
+        <p id="custom-alert-message" style="margin-bottom: 20px; font-family: 'Courier New', monospace; font-size: 1.2rem;"></p>
+        <button onclick="closeCustomAlert()" style="padding: 10px 20px; background-color: #0f0; color: #000; border: none; border-radius: 5px; font-size: 1rem; cursor: pointer;">Close</button>
+    </div>
+    <script>
+        const walletInput = document.getElementById("wallet-input");
+        const walletSubmit = document.getElementById("wallet-submit");
+        const linkInput = document.getElementById("link-input");
+        const linkSubmit = document.getElementById("link-submit");
+        const customAlert = document.getElementById("custom-alert");
+        const customAlertMessage = document.getElementById("custom-alert-message");
+
+        function showCustomAlert(message) {
+            customAlertMessage.textContent = message;
+            customAlert.style.display = "block";
+        }
+
+        function closeCustomAlert() {
+            customAlert.style.display = "none";
+        }
+
+        walletSubmit.addEventListener("click", () => {
+            const walletValue = walletInput.value.trim();
+            if (walletValue.length >= 40 && walletValue.length <= 50) {
+                showCustomAlert("Wallet submitted successfully!");
+            } else {
+                showCustomAlert("Error: That is not a valid Solana wallet.");
+            }
+            walletInput.value = "";
+        });
+
+        linkSubmit.addEventListener("click", () => {
+            if (linkInput.value.trim() !== "") {
+                showCustomAlert("Thanks for making Boat AI more intelligent!");
+                linkInput.value = "";
+            }
+        });
+    </script>
+    </body>
+
+</html>
